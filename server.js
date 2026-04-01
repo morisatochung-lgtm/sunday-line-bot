@@ -4,7 +4,7 @@ const line = require('@line/bot-sdk');
 const { OpenAI } = require('openai');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 // ── LINE 設定 ──────────────────────────────────────────────────────────────────
 const lineConfig = {
@@ -27,7 +27,7 @@ async function askAI(userId, userMessage) {
     conversationHistory[userId] = [
       {
         role: 'system',
-        content: `你是一個親切、實用的 LINE 機器人助理。
+        content: `你是一個親切、實用的 LINE 機器人助理，名字叫 Sunday。
 請用繁體中文回覆，語氣自然友善。
 回覆請簡潔，適合手機閱讀（每則不超過 200 字）。`
       }
@@ -63,15 +63,23 @@ async function askAI(userId, userMessage) {
   }
 }
 
-// ── Webhook 路由 ───────────────────────────────────────────────────────────────
+// ── 健康檢查（放在 webhook 前面）─────────────────────────────────────────────
+app.get('/', (req, res) => {
+  res.json({
+    status: '✅ Sunday LINE Bot 運行中',
+    name: 'Sunday',
+    time: new Date().toLocaleString('zh-TW'),
+    webhook: '/webhook'
+  });
+});
 
-// LINE 簽名驗證中介層
+// ── Webhook 路由 ───────────────────────────────────────────────────────────────
 app.post('/webhook',
   line.middleware(lineConfig),
   async (req, res) => {
     res.status(200).json({ status: 'ok' });
 
-    const events = req.body.events;
+    const events = req.body.events || [];
     for (const event of events) {
       await handleEvent(event);
     }
@@ -79,12 +87,10 @@ app.post('/webhook',
 );
 
 async function handleEvent(event) {
-  console.log(`[${new Date().toLocaleTimeString('zh-TW')}] 事件類型: ${event.type}`);
+  const ts = new Date().toLocaleTimeString('zh-TW');
+  console.log(`[${ts}] 事件類型: ${event.type}`);
 
-  // 只處理文字訊息
-  if (event.type !== 'message' || event.message.type !== 'text') {
-    return;
-  }
+  if (event.type !== 'message' || event.message.type !== 'text') return;
 
   const userId = event.source.userId;
   const userText = event.message.text;
@@ -93,11 +99,9 @@ async function handleEvent(event) {
   console.log(`  用戶 ID: ${userId}`);
   console.log(`  訊息內容: ${userText}`);
 
-  // 取得 AI 回覆
   const aiReply = await askAI(userId, userText);
   console.log(`  AI 回覆: ${aiReply.substring(0, 60)}...`);
 
-  // 回覆訊息
   try {
     await lineClient.replyMessage({
       replyToken: replyToken,
@@ -109,26 +113,13 @@ async function handleEvent(event) {
   }
 }
 
-// ── 健康檢查 ───────────────────────────────────────────────────────────────────
-app.get('/', (req, res) => {
-  res.json({
-    status: '✅ LINE Webhook 伺服器運行中',
-    time: new Date().toLocaleString('zh-TW'),
-    endpoints: {
-      webhook: 'POST /webhook',
-      health: 'GET /'
-    }
-  });
+// ── 錯誤處理 ───────────────────────────────────────────────────────────────────
+app.use((err, req, res, next) => {
+  console.error('伺服器錯誤:', err.message);
+  res.status(500).json({ error: 'Internal Server Error' });
 });
 
 // ── 啟動伺服器 ─────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
-  console.log('');
-  console.log('╔══════════════════════════════════════════╗');
-  console.log('║   LINE Webhook 伺服器已啟動              ║');
-  console.log(`║   Port: ${PORT}                              ║`);
-  console.log('╚══════════════════════════════════════════╝');
-  console.log('');
-  console.log('等待 LINE 訊息中...');
-  console.log('');
+  console.log(`\n✅ Sunday LINE Bot 伺服器已啟動 (Port: ${PORT})\n`);
 });
