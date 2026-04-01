@@ -1,0 +1,21 @@
+{
+  "name": "sunday-line-bot",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "Sunday LINE Bot Webhook Server",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@line/bot-sdk": "^10.6.0",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "openai": "^6.33.0"
+  }
+}
